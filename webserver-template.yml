@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+Deploy a Linux EC2 instance (Web server) referencing the network stack
+
+# Create a Mapping function to dynamically choose the region
+Mappings: 
+  RegionMap: 
+    us-east-1:
+      LinuxId: ami-033b95fb8079dc481
+    us-east-2:
+      LinuxId: ami-0b614a5d911900a9b
+    us-west-1:
+      LinuxId: ami-0573b70afecda915d
+    us-west-2:
+      LinuxId: ami-0341aeea105412b57
+    eu-west-1:
+      LinuxId: ami-0bf84c42e04519c85
+
+# Create parameters for requesting user inputs
+Parameters:
+  Ec2Type:
+    Description: WebServer EC2 instance type (has default, AllowedValues)
+    Type: String
+    Default: t3.small
+    AllowedValues: 
+      - t3.micro
+      - t3.nano
+      - t3.small
+  MyKeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances.
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+# Create an EC2 instance resource
+Resources:
+  LinuxWebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", LinuxId]
+      InstanceType: !Ref Ec2Type
+      SubnetId: !ImportValue SampleNetworkCrossStack-SubnetID
+      KeyName: !Ref MyKeyName
+      SecurityGroupIds:
+        - !ImportValue SampleNetworkCrossStack-SecurityGroupID
+      Tags:
+        - Key: Name
+          Value: WebServer
+      # Install and configure apache on the EC2 using User data to display a webpage
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          #updating software package
+          yum update -y
+          #installing apache web server
+          yum install -y httpd
+          #enabling httpd service
+          systemctl start httpd
+          #enabling httpd service at boot time
+          systemctl enable httpd
+          #display web page
+          echo "Automated Apache web server deployment using CloudFormation" > /var/www/html/index.html
+# Allocate an Elastic IP address and associate it with the instance
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref LinuxWebServer
+
+# Output the values of the private IPv4 address and DNS name of the EC2 instance
+Outputs:    
+  privateIPv4:
+    Description: display the private IPv4 of the EC2 Instance
+    Value: !GetAtt LinuxWebServer.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateIp'
+  publicDnsName:
+    Description: display the Public DNS Name of the EC2 Instance
+    Value: !GetAtt LinuxWebServer.PublicDnsName
+    Export:
+      Name: !Sub '${AWS::Region}-PublicDNSname'
+  
+    
+
+
