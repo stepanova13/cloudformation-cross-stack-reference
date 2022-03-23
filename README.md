@@ -6,5 +6,5 @@ CloudFormation Cross Stack Reference
 
 - Step2 - Deploy a new stack that will setup a Linux EC2 instance (Web server) and reference the sample network stack previously created.
 
-# - diagram:
+# diagram:
 ![](images/diagram.drawio.png)
